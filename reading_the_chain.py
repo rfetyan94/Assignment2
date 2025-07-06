@@ -14,7 +14,7 @@ ALCHEMY_KEY = "1GJv_NJYS2l-dfBp5iIAn"
 
 def connect_to_eth():
 	# TODO insert your code for this method from last week's assignment
-  alchemy_url = f"https://eth-mainnet.g.alchemy.com/v2/{ALCHEMY_KEY}"
+	alchemy_url = f"https://eth-mainnet.g.alchemy.com/v2/{ALCHEMY_KEY}"
   w3 = Web3(Web3.HTTPProvider(alchemy_url))
   assert w3.is_connected(), "Web3 is not connected"
   return w3
