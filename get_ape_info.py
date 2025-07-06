@@ -20,7 +20,6 @@ api_url = f"https://eth-mainnet.g.alchemy.com/v2/{ALCHEMY_KEY}"
 provider = HTTPProvider(api_url)
 web3 = Web3(provider)
 
-
 def get_ape_info(ape_id):
     assert isinstance(ape_id, int), f"{ape_id} is not an int"
     assert 0 <= ape_id, f"{ape_id} must be at least 0"
@@ -28,7 +27,9 @@ def get_ape_info(ape_id):
 
     data = {'owner': "", 'image': "", 'eyes': ""}
 
-    # YOUR CODE HERE
+    # Set up the contract locally to avoid scope issues
+    contract = web3.eth.contract(address=contract_address, abi=abi)
+
     # Get the owner
     data['owner'] = contract.functions.ownerOf(ape_id).call()
 
@@ -42,7 +43,7 @@ def get_ape_info(ape_id):
         if attribute.get('trait_type') == 'Eyes':
             data['eyes'] = attribute.get('value', '')
             break
+
     assert isinstance(data, dict), f'get_ape_info{ape_id} should return a dict'
-    assert all([a in data.keys() for a in
-                ['owner', 'image', 'eyes']]), f"return value should include the keys 'owner','image' and 'eyes'"
+    assert all([a in data.keys() for a in ['owner', 'image', 'eyes']]), "return value should include the keys 'owner','image' and 'eyes'"
     return data
