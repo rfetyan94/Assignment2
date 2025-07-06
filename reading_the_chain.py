@@ -19,11 +19,19 @@ def connect_to_eth():
     return w3
 	
 def connect_with_middleware(contract_file):
-    w3 = connect_to_eth()
-    with open(contract_file) as f:
-        abi = json.load(f)
-    address = to_checksum_address("0xbc4ca0eda7647a8ab7c2061c2e118a18a936f13d")
+    with open(contract_file, "r") as f:
+        d = json.load(f)
+        d = d['bsc']
+        address = d['address']
+        abi = d['abi']
+
+    url = "https://endpoints.omniatech.io/v1/bsc/testnet/public"
+    w3 = Web3(HTTPProvider(url))
+    assert w3.is_connected(), f"Failed to connect to provider at {url}"
+
+    w3.middleware_onion.inject(ExtraDataToPOAMiddleware, layer=0)
     contract = w3.eth.contract(address=address, abi=abi)
+
     return w3, contract
 
 def is_ordered_block(w3, block_num):
