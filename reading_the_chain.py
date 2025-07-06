@@ -3,21 +3,31 @@ import json
 from web3 import Web3
 from web3.middleware import ExtraDataToPOAMiddleware
 from web3.providers.rpc import HTTPProvider
-
+from eth_utils import to_checksum_address
 
 # If you use one of the suggested infrastructure providers, the url will be of the form
 # now_url  = f"https://eth.nownodes.io/{now_token}"
 # alchemy_url = f"https://eth-mainnet.alchemyapi.io/v2/{alchemy_token}"
 # infura_url = f"https://mainnet.infura.io/v3/{infura_token}"
 
+ALCHEMY_KEY = "1GJv_NJYS2l-dfBp5iIAn"
+
 def connect_to_eth():
 	# TODO insert your code for this method from last week's assignment
-	return w3
+	alchemy_url = f"https://eth-mainnet.g.alchemy.com/v2/{ALCHEMY_KEY}"
+  w3 = Web3(Web3.HTTPProvider(alchemy_url))
+  assert w3.is_connected(), "Web3 is not connected"
+  return w3
 
 
 def connect_with_middleware(contract_json):
 	# TODO insert your code for this method from last week's assignment
-	return w3, contract
+  w3 = connect_to_eth()
+  with open(contract_file) as f:
+      abi = json.load(f)
+  address = to_checksum_address("0xbc4ca0eda7647a8ab7c2061c2e118a18a936f13d")
+  contract = w3.eth.contract(address=address, abi=abi)
+  return w3, contract
 
 
 def is_ordered_block(w3, block_num):
@@ -33,12 +43,31 @@ def is_ordered_block(w3, block_num):
 
 	Conveniently, most type 2 transactions set the gasPrice field to be min( tx.maxPriorityFeePerGas + block.baseFeePerGas, tx.maxFeePerGas )
 	"""
-	block = w3.eth.get_block(block_num, full_transactions=True)
-	ordered = False
-
 	# TODO YOUR CODE HERE
+  block = w3.eth.get_block(block_num, full_transactions=True)
 
-	return ordered
+  if 'baseFeePerGas' in block:
+      base_fee_per_gas = block['baseFeePerGas']
+  else:
+      base_fee_per_gas = 0 
+
+  priority_fees = []
+
+  for tx in block['transactions']:
+      if 'maxPriorityFeePerGas' in tx and 'maxFeePerGas' in tx:
+          priority_fee = min(tx['maxPriorityFeePerGas'], tx['maxFeePerGas'] - base_fee_per_gas)
+      else:
+          priority_fee = tx['gasPrice'] - base_fee_per_gas
+
+      priority_fees.append(priority_fee)
+
+  ordered = True
+  for i in range(len(priority_fees) - 1):
+      if priority_fees[i] < priority_fees[i + 1]:
+          ordered = False
+          break
+
+  return ordered
 
 
 def get_contract_values(contract, admin_address, owner_address):
@@ -58,9 +87,9 @@ def get_contract_values(contract, admin_address, owner_address):
 	default_admin_role = int.to_bytes(0, 32, byteorder="big")
 
 	# TODO complete the following lines by performing contract calls
-	onchain_root = 0  # Get and return the merkleRoot from the provided contract
-	has_role = 0  # Check the contract to see if the address "admin_address" has the role "default_admin_role"
-	prime = 0  # Call the contract to get the prime owned by "owner_address"
+	onchain_root = contract.functions.merkleRoot().call()  # Get and return the merkleRoot from the provided contract
+	has_role = contract.functions.hasRole(default_admin_role, admin_address).call()  # Check the contract to see if the address "admin_address" has the role "default_admin_role"
+	prime = contract.functions.getPrimeByOwner(owner_address).call()  # Call the contract to get the prime owned by "owner_address"
 
 	return onchain_root, has_role, prime
 
