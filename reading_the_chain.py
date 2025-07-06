@@ -13,85 +13,90 @@ from eth_utils import to_checksum_address
 ALCHEMY_KEY = "1GJv_NJYS2l-dfBp5iIAn"
 
 def connect_to_eth():
-	# TODO insert your code for this method from last week's assignment
-	alchemy_url = f"https://eth-mainnet.g.alchemy.com/v2/{ALCHEMY_KEY}"
-  w3 = Web3(Web3.HTTPProvider(alchemy_url))
-  assert w3.is_connected(), "Web3 is not connected"
-  return w3
-
-
-def connect_with_middleware(contract_json):
-	# TODO insert your code for this method from last week's assignment
-  w3 = connect_to_eth()
-  with open(contract_file) as f:
-      abi = json.load(f)
-  address = to_checksum_address("0xbc4ca0eda7647a8ab7c2061c2e118a18a936f13d")
-  contract = w3.eth.contract(address=address, abi=abi)
-  return w3, contract
-
+    alchemy_url = f"https://eth-mainnet.g.alchemy.com/v2/{ALCHEMY_KEY}"
+    w3 = Web3(Web3.HTTPProvider(alchemy_url))
+    assert w3.is_connected(), "Web3 is not connected"
+    return w3
+	
+def connect_with_middleware(contract_file):
+    w3 = connect_to_eth()
+    with open(contract_file) as f:
+        abi = json.load(f)
+    address = to_checksum_address("0xbc4ca0eda7647a8ab7c2061c2e118a18a936f13d")
+    contract = w3.eth.contract(address=address, abi=abi)
+    return w3, contract
 
 def is_ordered_block(w3, block_num):
-	"""
-	Takes a block number
-	Returns a boolean that tells whether all the transactions in the block are ordered by priority fee
+    """
+    Takes a block number
+    Returns a boolean that tells whether all the transactions in the block are ordered by priority fee
 
-	Before EIP-1559, a block is ordered if and only if all transactions are sorted in decreasing order of the gasPrice field
+    Before EIP-1559, a block is ordered if and only if all transactions are sorted in decreasing order of the gasPrice field
 
-	After EIP-1559, there are two types of transactions
-		*Type 0* The priority fee is tx.gasPrice - block.baseFeePerGas
-		*Type 2* The priority fee is min( tx.maxPriorityFeePerGas, tx.maxFeePerGas - block.baseFeePerGas )
+    After EIP-1559, there are two types of transactions
+        *Type 0* The priority fee is tx.gasPrice - block.baseFeePerGas
+        *Type 2* The priority fee is min( tx.maxPriorityFeePerGas, tx.maxFeePerGas - block.baseFeePerGas )
 
-	Conveniently, most type 2 transactions set the gasPrice field to be min( tx.maxPriorityFeePerGas + block.baseFeePerGas, tx.maxFeePerGas )
-	"""
-	# TODO YOUR CODE HERE
-  block = w3.eth.get_block(block_num, full_transactions=True)
+    Conveniently, most type 2 transactions set the gasPrice field to be min( tx.maxPriorityFeePerGas + block.baseFeePerGas, tx.maxFeePerGas )
+    """
+    block = w3.eth.get_block(block_num, full_transactions=True)
 
-  if 'baseFeePerGas' in block:
-      base_fee_per_gas = block['baseFeePerGas']
-  else:
-      base_fee_per_gas = 0 
+    # Get the base fee for EIP-1559 blocks (if it exists)
+    if 'baseFeePerGas' in block:
+        base_fee_per_gas = block['baseFeePerGas']
+    else:
+        base_fee_per_gas = 0  # Pre-EIP-1559 blocks won't have this
 
-  priority_fees = []
+    # List to keep track of priority fees
+    priority_fees = []
 
-  for tx in block['transactions']:
-      if 'maxPriorityFeePerGas' in tx and 'maxFeePerGas' in tx:
-          priority_fee = min(tx['maxPriorityFeePerGas'], tx['maxFeePerGas'] - base_fee_per_gas)
-      else:
-          priority_fee = tx['gasPrice'] - base_fee_per_gas
+    # Go through each transaction in the block
+    for tx in block['transactions']:
+        # Check if it's a type 2 transaction (newer EIP-1559 format)
+        if 'maxPriorityFeePerGas' in tx and 'maxFeePerGas' in tx:
+            priority_fee = min(tx['maxPriorityFeePerGas'], tx['maxFeePerGas'] - base_fee_per_gas)
+        else:
+            # If it's an older transaction, use gasPrice instead
+            priority_fee = tx['gasPrice'] - base_fee_per_gas
 
-      priority_fees.append(priority_fee)
+        # Add the calculated priority fee to the list
+        priority_fees.append(priority_fee)
 
-  ordered = True
-  for i in range(len(priority_fees) - 1):
-      if priority_fees[i] < priority_fees[i + 1]:
-          ordered = False
-          break
+    # Check if the list is sorted in decreasing order
+    ordered = True
+    for i in range(len(priority_fees) - 1):
+        if priority_fees[i] < priority_fees[i + 1]:
+            ordered = False
+            break
 
-  return ordered
-
-
+    return ordered
+	
 def get_contract_values(contract, admin_address, owner_address):
-	"""
-	Takes a contract object, and two addresses (as strings) to be used for calling
-	the contract to check current on chain values.
-	The provided "default_admin_role" is the correctly formatted solidity default
-	admin value to use when checking with the contract
-	To complete this method you need to make three calls to the contract to get:
-	  onchain_root: Get and return the merkleRoot from the provided contract
-	  has_role: Verify that the address "admin_address" has the role "default_admin_role" return True/False
-	  prime: Call the contract to get and return the prime owned by "owner_address"
+    """
+    Takes a contract object, and two addresses (as strings) to be used for calling
+    the contract to check current on chain values.
+    The provided "default_admin_role" is the correctly formatted solidity default
+    admin value to use when checking with the contract
+    To complete this method you need to make three calls to the contract to get:
+      onchain_root: Get and return the merkleRoot from the provided contract
+      has_role: Verify that the address "admin_address" has the role "default_admin_role" return True/False
+      prime: Call the contract to get and return the prime owned by "owner_address"
 
-	check on available contract functions and transactions on the block explorer at
-	https://testnet.bscscan.com/address/0xaA7CAaDA823300D18D3c43f65569a47e78220073
-	"""
-	default_admin_role = int.to_bytes(0, 32, byteorder="big")
+    check on available contract functions and transactions on the block explorer at
+    https://testnet.bscscan.com/address/0xaA7CAaDA823300D18D3c43f65569a47e78220073
+    """
+    default_admin_role = int.to_bytes(0, 32, byteorder="big")
 
-	# TODO complete the following lines by performing contract calls
-	onchain_root = contract.functions.merkleRoot().call()  # Get and return the merkleRoot from the provided contract
-	has_role = contract.functions.hasRole(default_admin_role, admin_address).call()  # Check the contract to see if the address "admin_address" has the role "default_admin_role"
-	prime = contract.functions.getPrimeByOwner(owner_address).call()  # Call the contract to get the prime owned by "owner_address"
+    # Get and return the merkleRoot from the provided contract
+    onchain_root = contract.functions.merkleRoot().call()
 
-	return onchain_root, has_role, prime
+    # Check the contract to see if the address "admin_address" has the role "default_admin_role"
+    has_role = contract.functions.hasRole(default_admin_role, admin_address).call()
+
+    # Call the contract to get the prime owned by "owner_address"
+    prime = contract.functions.getPrimeByOwner(owner_address).call()
+
+    return onchain_root, has_role, prime
 
 
 """
@@ -121,3 +126,4 @@ if __name__ == "__main__":
 			print(f"Block {block_num} is ordered")
 		else:
 			print(f"Block {block_num} is not ordered")
+
