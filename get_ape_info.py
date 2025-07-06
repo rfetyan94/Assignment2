@@ -15,7 +15,8 @@ with open('ape_abi.json', 'r') as f:
 
 ############################
 # Connect to an Ethereum node
-api_url = ""  # YOU WILL NEED TO PROVIDE THE URL OF AN ETHEREUM NODE
+ALCHEMY_KEY = "1GJv_NJYS2l-dfBp5iIAn"
+api_url = f"https://eth-mainnet.g.alchemy.com/v2/{ALCHEMY_KEY}"
 provider = HTTPProvider(api_url)
 web3 = Web3(provider)
 
@@ -28,7 +29,19 @@ def get_ape_info(ape_id):
     data = {'owner': "", 'image': "", 'eyes': ""}
 
     # YOUR CODE HERE
+    # Get the owner
+    data['owner'] = contract.functions.ownerOf(ape_id).call()
 
+    # Get the tokenURI (which contains metadata including the image)
+    token_uri = contract.functions.tokenURI(ape_id).call()
+    metadata = json.loads(requests.get(token_uri).text)
+
+    # Get the image and eyes trait
+    data['image'] = metadata.get('image', '')
+    for attribute in metadata.get('attributes', []):
+        if attribute.get('trait_type') == 'Eyes':
+            data['eyes'] = attribute.get('value', '')
+            break
     assert isinstance(data, dict), f'get_ape_info{ape_id} should return a dict'
     assert all([a in data.keys() for a in
                 ['owner', 'image', 'eyes']]), f"return value should include the keys 'owner','image' and 'eyes'"
